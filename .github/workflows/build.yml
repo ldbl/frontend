@@ -17,7 +17,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/backend
+  IMAGE_NAME: ${{ github.repository_owner }}/frontend
 
 jobs:
   build:
@@ -81,7 +81,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.full_tag }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.short_sha }}
           labels: |
-            org.opencontainers.image.title=backend
+            org.opencontainers.image.title=frontend
             org.opencontainers.image.version=${{ steps.meta.outputs.full_tag }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ steps.meta.outputs.build_date }}
