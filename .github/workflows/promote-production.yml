@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/backend
+  IMAGE_NAME: ${{ github.repository_owner }}/frontend
 
 jobs:
   promote:
@@ -44,7 +44,7 @@ jobs:
             echo "Fetching latest staging tag..."
 
             LATEST_TAG=$(gh api \
-              "/users/${{ github.repository_owner }}/packages/container/backend/versions" \
+              "/users/${{ github.repository_owner }}/packages/container/frontend/versions" \
               --jq '.[].metadata.container.tags[]' 2>/dev/null | \
               grep -E '^staging-v[0-9]+\.[0-9]+\.[0-9]+-[a-f0-9]+-[0-9]+$' | \
               sort -t'-' -k4 -n -r | \
