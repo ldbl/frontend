@@ -7,8 +7,8 @@ const backendStore = useBackendStore()
 const headers = ref(null)
 const loading = ref(true)
 const frontendConfig = {
-  apiBaseUrl: import.meta.env.VITE_API_URL || 'http://localhost:8080',
-  mode: import.meta.env.MODE,
+  apiBaseUrl: window.__ENV__?.VITE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080',
+  mode: window.__ENV__?.ENVIRONMENT || import.meta.env.MODE,
   baseUrl: import.meta.env.BASE_URL,
 }
 
