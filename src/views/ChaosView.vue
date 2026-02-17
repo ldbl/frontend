@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useBackendStore } from '../stores/backend'
 import { api } from '../services/api'
+import { withSpan } from '../services/telemetry'
 
 const backendStore = useBackendStore()
 const delaySeconds = ref(2)
@@ -31,7 +32,9 @@ async function toggleLiveness(enable) {
 async function triggerDelay() {
   try {
     message.value = `Triggering ${delaySeconds.value}s delay...`
-    await api.delay(delaySeconds.value)
+    await withSpan('ui.chaos.trigger_delay', { 'chaos.delay.seconds': delaySeconds.value }, () =>
+      api.delay(delaySeconds.value)
+    )
     message.value = `Delay completed successfully`
     setTimeout(() => message.value = '', 3000)
   } catch (error) {
@@ -42,7 +45,9 @@ async function triggerDelay() {
 async function triggerStatus() {
   try {
     message.value = `Triggering HTTP ${statusCode.value}...`
-    await api.status(statusCode.value)
+    await withSpan('ui.chaos.trigger_status', { 'http.response.status_code': statusCode.value }, () =>
+      api.status(statusCode.value)
+    )
     message.value = `Received status ${statusCode.value}`
     setTimeout(() => message.value = '', 3000)
   } catch (error) {
@@ -55,7 +60,10 @@ async function triggerPanic() {
 
   try {
     message.value = 'Triggering panic... Backend will restart'
-    await backendStore.triggerPanic()
+    const data = await backendStore.triggerPanic()
+    if (data?.trace_id) {
+      message.value = `Panic triggered. Trace ID: ${data.trace_id}`
+    }
   } catch (error) {
     message.value = 'Backend terminated (expected behavior)'
   }

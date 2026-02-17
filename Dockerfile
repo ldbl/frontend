@@ -37,7 +37,7 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Create runtime environment config script
 RUN echo '#!/bin/sh' > /docker-entrypoint.d/40-generate-env-config.sh && \
-    echo 'cat <<EOF > /usr/share/nginx/html/config.js' >> /docker-entrypoint.d/40-generate-env-config.sh && \
+    echo 'cat <<EOF > /tmp/config.js' >> /docker-entrypoint.d/40-generate-env-config.sh && \
     echo 'window.__ENV__ = {' >> /docker-entrypoint.d/40-generate-env-config.sh && \
     echo '  VITE_API_URL: "${VITE_API_URL}",' >> /docker-entrypoint.d/40-generate-env-config.sh && \
     echo '  VITE_UPTRACE_DSN: "${VITE_UPTRACE_DSN}",' >> /docker-entrypoint.d/40-generate-env-config.sh && \
@@ -47,6 +47,7 @@ RUN echo '#!/bin/sh' > /docker-entrypoint.d/40-generate-env-config.sh && \
     echo '  BUILD_DATE: "${BUILD_DATE}"' >> /docker-entrypoint.d/40-generate-env-config.sh && \
     echo '};' >> /docker-entrypoint.d/40-generate-env-config.sh && \
     echo 'EOF' >> /docker-entrypoint.d/40-generate-env-config.sh && \
+    echo 'chmod 0644 /tmp/config.js' >> /docker-entrypoint.d/40-generate-env-config.sh && \
     chmod +x /docker-entrypoint.d/40-generate-env-config.sh
 
 # Create non-root user

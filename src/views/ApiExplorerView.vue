@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from '../services/api'
+import { withSpan } from '../services/telemetry'
 
 const openApiSpec = ref(null)
 const loading = ref(true)
@@ -9,7 +10,7 @@ const response = ref(null)
 
 onMounted(async () => {
   try {
-    const res = await api.getOpenAPI()
+    const res = await withSpan('ui.api_explorer.load_spec', {}, () => api.getOpenAPI())
     openApiSpec.value = res.data
   } catch (error) {
     console.error('Failed to fetch OpenAPI spec:', error)
@@ -23,32 +24,30 @@ async function testEndpoint(path, method) {
   response.value = { loading: true }
 
   try {
-    let result
-    switch (path) {
-      case '/healthz':
-        result = await api.getHealth()
-        break
-      case '/readyz':
-        result = await api.getReady()
-        break
-      case '/livez':
-        result = await api.getLive()
-        break
-      case '/version':
-        result = await api.getVersion()
-        break
-      case '/env':
-        result = await api.getEnv()
-        break
-      case '/headers':
-        result = await api.getHeaders()
-        break
-      case '/metrics':
-        result = await api.getMetrics()
-        break
-      default:
-        result = { data: 'Click endpoint to test' }
-    }
+    const result = await withSpan('ui.api_explorer.test_endpoint', {
+      'http.route': path,
+      'http.method': method.toUpperCase(),
+    }, async (span) => {
+      switch (path) {
+        case '/healthz':
+          return await api.getHealth()
+        case '/readyz':
+          return await api.getReady()
+        case '/livez':
+          return await api.getLive()
+        case '/version':
+          return await api.getVersion()
+        case '/env':
+          return await api.getEnv()
+        case '/headers':
+          return await api.getHeaders()
+        case '/metrics':
+          return await api.getMetrics()
+        default:
+          span.setAttribute('ui.api_explorer.unsupported_route', true)
+          return { data: 'Click endpoint to test' }
+      }
+    })
 
     response.value = {
       loading: false,

@@ -128,3 +128,24 @@ export function initTelemetry() {
 export function getTracer() {
   return trace.getTracer('frontend', '1.0.0')
 }
+
+// Helper for manual UI/business spans around async actions.
+export async function withSpan(name, attributes = {}, fn) {
+  const tracer = getTracer()
+  const span = tracer.startSpan(name)
+
+  try {
+    Object.entries(attributes).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        span.setAttribute(key, value)
+      }
+    })
+    return await fn(span)
+  } catch (error) {
+    span.recordException(error)
+    span.setAttribute('error', true)
+    throw error
+  } finally {
+    span.end()
+  }
+}

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../services/api'
+import { withSpan } from '../services/telemetry'
 
 export const useBackendStore = defineStore('backend', () => {
   // State
@@ -23,7 +24,7 @@ export const useBackendStore = defineStore('backend', () => {
   // Actions
   async function fetchVersion() {
     try {
-      const response = await api.getVersion()
+      const response = await withSpan('ui.dashboard.fetch_version', {}, () => api.getVersion())
       version.value = response.data
     } catch (err) {
       console.error('Failed to fetch version:', err)
@@ -33,11 +34,13 @@ export const useBackendStore = defineStore('backend', () => {
 
   async function fetchHealth() {
     try {
-      const [healthRes, readyRes, liveRes] = await Promise.all([
-        api.getHealth().catch(() => ({ status: 503 })),
-        api.getReady().catch(() => ({ status: 503 })),
-        api.getLive().catch(() => ({ status: 503 })),
-      ])
+      const [healthRes, readyRes, liveRes] = await withSpan('ui.dashboard.fetch_health', {}, () =>
+        Promise.all([
+          api.getHealth().catch(() => ({ status: 503 })),
+          api.getReady().catch(() => ({ status: 503 })),
+          api.getLive().catch(() => ({ status: 503 })),
+        ])
+      )
 
       health.value = {
         healthy: healthRes.status === 200,
@@ -52,7 +55,7 @@ export const useBackendStore = defineStore('backend', () => {
 
   async function fetchMetrics() {
     try {
-      const response = await api.getMetrics()
+      const response = await withSpan('ui.dashboard.fetch_metrics', {}, () => api.getMetrics())
       metrics.value = parsePrometheusMetrics(response.data)
     } catch (err) {
       console.error('Failed to fetch metrics:', err)
@@ -62,7 +65,7 @@ export const useBackendStore = defineStore('backend', () => {
 
   async function fetchEnvironment() {
     try {
-      const response = await api.getEnv()
+      const response = await withSpan('ui.environment.fetch', {}, () => api.getEnv())
       environment.value = response.data
     } catch (err) {
       console.error('Failed to fetch environment:', err)
@@ -72,11 +75,13 @@ export const useBackendStore = defineStore('backend', () => {
 
   async function toggleReady(enable) {
     try {
-      if (enable) {
-        await api.enableReady()
-      } else {
-        await api.disableReady()
-      }
+      await withSpan('ui.chaos.toggle_readiness', { 'chaos.enable': enable }, async () => {
+        if (enable) {
+          await api.enableReady()
+        } else {
+          await api.disableReady()
+        }
+      })
       await fetchHealth()
     } catch (err) {
       console.error('Failed to toggle ready:', err)
@@ -86,11 +91,13 @@ export const useBackendStore = defineStore('backend', () => {
 
   async function toggleLive(enable) {
     try {
-      if (enable) {
-        await api.enableLive()
-      } else {
-        await api.disableLive()
-      }
+      await withSpan('ui.chaos.toggle_liveness', { 'chaos.enable': enable }, async () => {
+        if (enable) {
+          await api.enableLive()
+        } else {
+          await api.disableLive()
+        }
+      })
       await fetchHealth()
     } catch (err) {
       console.error('Failed to toggle live:', err)
@@ -100,10 +107,12 @@ export const useBackendStore = defineStore('backend', () => {
 
   async function triggerPanic() {
     try {
-      await api.triggerPanic()
+      const response = await withSpan('ui.chaos.trigger_panic', { 'chaos.expected_crash': true }, () => api.triggerPanic())
+      return response?.data || null
     } catch (err) {
       console.error('Failed to trigger panic:', err)
       error.value = err.message
+      return null
     }
   }
 
