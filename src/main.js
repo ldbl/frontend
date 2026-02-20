@@ -7,7 +7,11 @@ import './style.css'
 import { initTelemetry } from './services/telemetry'
 
 // Initialize OpenTelemetry before anything else
-initTelemetry()
+try {
+  initTelemetry()
+} catch (err) {
+  console.error('[Telemetry] Failed to initialize:', err)
+}
 
 const app = createApp(App)
 

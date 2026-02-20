@@ -54,23 +54,23 @@ export function initTelemetry() {
     'deployment.environment': config.environment,
   })
 
-  // Create tracer provider
-  const provider = new WebTracerProvider({
-    resource,
-  })
-
   // Configure OTLP HTTP exporter
   const exporter = new OTLPTraceExporter({
     url: config.collectorUrl,
     headers: config.headers,
   })
 
-  // Add batch span processor
-  provider.addSpanProcessor(new BatchSpanProcessor(exporter, {
-    maxQueueSize: 100,
-    maxExportBatchSize: 10,
-    scheduledDelayMillis: 500,
-  }))
+  // Create tracer provider with span processor (v2.x API)
+  const provider = new WebTracerProvider({
+    resource,
+    spanProcessors: [
+      new BatchSpanProcessor(exporter, {
+        maxQueueSize: 100,
+        maxExportBatchSize: 10,
+        scheduledDelayMillis: 500,
+      }),
+    ],
+  })
 
   // Register the provider
   provider.register()
