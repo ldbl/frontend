@@ -8,6 +8,29 @@ const backendStore = useBackendStore()
 const refreshInterval = ref(null)
 const loading = ref(true)
 
+function stopPolling() {
+  if (refreshInterval.value) {
+    clearInterval(refreshInterval.value)
+    refreshInterval.value = null
+  }
+}
+
+function startPolling() {
+  if (refreshInterval.value) {
+    return
+  }
+  refreshInterval.value = setInterval(fetchData, 5000)
+}
+
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopPolling()
+    return
+  }
+  fetchData()
+  startPolling()
+}
+
 // Computed stats from metrics
 const totalRequests = computed(() => {
   if (!backendStore.metrics || !backendStore.metrics.app_http_requests_total) return 0
@@ -43,14 +66,14 @@ async function fetchData() {
 
 onMounted(() => {
   fetchData()
-  // Refresh every 5 seconds
-  refreshInterval.value = setInterval(fetchData, 5000)
+  // Refresh every 5 seconds while the tab is active
+  startPolling()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 
 onUnmounted(() => {
-  if (refreshInterval.value) {
-    clearInterval(refreshInterval.value)
-  }
+  stopPolling()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 
