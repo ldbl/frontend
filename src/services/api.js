@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+const AUTH_TOKEN_KEY = 'sre_jwt_token'
+
 // Get backend URL from environment or default to localhost
 const API_BASE_URL = window.__ENV__?.VITE_API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080'
 
@@ -15,6 +17,12 @@ const apiClient = axios.create({
 // Request interceptor
 apiClient.interceptors.request.use(
   (config) => {
+    const token = localStorage.getItem(AUTH_TOKEN_KEY)
+    if (token) {
+      config.headers = config.headers || {}
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
     console.log(`[API] ${config.method.toUpperCase()} ${config.url}`)
     return config
   },
@@ -38,6 +46,19 @@ apiClient.interceptors.response.use(
 
 // API methods
 export const api = {
+  // Auth
+  register(username, password) {
+    return apiClient.post('/auth/register', { username, password })
+  },
+
+  login(username, password) {
+    return apiClient.post('/auth/login', { username, password })
+  },
+
+  getMe() {
+    return apiClient.get('/auth/me')
+  },
+
   // Health checks
   getHealth() {
     return apiClient.get('/healthz')
@@ -83,7 +104,7 @@ export const api = {
   // Metrics
   getMetrics() {
     return apiClient.get('/metrics', {
-      headers: { 'Accept': 'text/plain' },
+      headers: { Accept: 'text/plain' },
       transformResponse: [(data) => data], // Keep as plain text
     })
   },

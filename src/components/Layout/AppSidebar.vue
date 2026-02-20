@@ -6,6 +6,7 @@ const navItems = [
   { name: 'Chaos Engineering', path: '/chaos', icon: '💥' },
   { name: 'API Explorer', path: '/api-explorer', icon: '🔍' },
   { name: 'Environment', path: '/environment', icon: '⚙️' },
+  { name: 'Auth', path: '/auth', icon: '🔐' },
 ]
 </script>
 
