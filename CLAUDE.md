@@ -59,7 +59,7 @@ Vue 3 SPA serving as the SRE Control Plane Dashboard — a companion UI for the 
 
 ## Project Structure
 
-```
+```text
 src/
   main.js                    # Entry point (Pinia, Router, ApexCharts, OTel)
   App.vue                    # Root component with Layout
@@ -70,6 +70,7 @@ src/
     telemetry.js             # OpenTelemetry browser SDK init
   stores/
     backend.js               # Pinia store for backend state
+    auth.js                  # Pinia store for authentication state
   views/
     DashboardView.vue        # Health probes, version info, charts
     ChaosView.vue            # Chaos engineering controls

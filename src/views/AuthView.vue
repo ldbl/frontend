@@ -29,6 +29,7 @@ async function submit() {
 function switchMode(nextMode) {
   mode.value = nextMode
   notice.value = ''
+  authStore.error = ''
 }
 </script>
 
@@ -77,7 +78,7 @@ function switchMode(nextMode) {
           <input
             v-model="password"
             type="password"
-            autocomplete="current-password"
+            :autocomplete="isLogin ? 'current-password' : 'new-password'"
             class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none"
           />
           <p class="mt-1 text-xs text-slate-400">Минимум 8 символа.</p>

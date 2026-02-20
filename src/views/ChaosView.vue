@@ -17,7 +17,7 @@ function requireAuth(actionLabel) {
   if (isAuthenticated.value) {
     return true
   }
-  message.value = `${actionLabel}: нужна е автентикация.`
+  message.value = `${actionLabel}: authentication required.`
   return false
 }
 
@@ -95,7 +95,7 @@ async function triggerPanic() {
     </div>
 
     <div v-if="!isAuthenticated" class="bg-amber-900/40 border border-amber-700 rounded-lg p-4 text-amber-300 text-sm">
-      Анонимен режим: можеш да тестваш delay/status, но `readiness/liveness/panic` са позволени само за логнати потребители.
+      Anonymous mode: you can test delay/status, but readiness/liveness/panic are available only for authenticated users.
     </div>
 
     <!-- Message Alert -->
