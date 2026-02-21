@@ -86,6 +86,7 @@ export const useBackendStore = defineStore('backend', () => {
     } catch (err) {
       console.error('Failed to toggle ready:', err)
       error.value = err.message
+      throw err
     }
   }
 
@@ -102,6 +103,7 @@ export const useBackendStore = defineStore('backend', () => {
     } catch (err) {
       console.error('Failed to toggle live:', err)
       error.value = err.message
+      throw err
     }
   }
 
@@ -112,7 +114,7 @@ export const useBackendStore = defineStore('backend', () => {
     } catch (err) {
       console.error('Failed to trigger panic:', err)
       error.value = err.message
-      return null
+      throw err
     }
   }
 

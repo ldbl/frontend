@@ -1,6 +1,6 @@
 import { WebTracerProvider } from '@opentelemetry/sdk-trace-web'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
-import { trace } from '@opentelemetry/api'
+import { SpanStatusCode, trace } from '@opentelemetry/api'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-web'
@@ -10,10 +10,45 @@ import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xm
 import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-document-load'
 import { UserInteractionInstrumentation } from '@opentelemetry/instrumentation-user-interaction'
 
+const DEFAULT_TRACE_HEADER_CORS_URLS = [
+  /localhost/,
+  /\.local$/,
+  /\.svc\.cluster\.local$/,
+  /example\.com$/,
+]
+
+const DEFAULT_IGNORED_HTTP_URLS = [
+  /\/healthz(?:\?.*)?$/,
+  /\/readyz(?:\?.*)?$/,
+  /\/livez(?:\?.*)?$/,
+  /\/metrics(?:\?.*)?$/,
+]
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function buildTraceHeaderCorsUrls(apiUrl) {
+  const rules = [...DEFAULT_TRACE_HEADER_CORS_URLS]
+  if (!apiUrl) {
+    return rules
+  }
+
+  try {
+    const origin = new URL(apiUrl, window.location.origin).origin
+    rules.push(new RegExp(`^${escapeRegExp(origin)}`))
+  } catch {
+    console.warn('[Telemetry] Failed to parse API URL for trace header propagation:', apiUrl)
+  }
+
+  return rules
+}
+
 // Get configuration from environment
 const getConfig = () => {
   // Uptrace DSN format: https://TOKEN@api.uptrace.dev
   const uptraceDsn = window.__ENV__?.VITE_UPTRACE_DSN || import.meta.env.VITE_UPTRACE_DSN || ''
+  const apiUrl = window.__ENV__?.VITE_API_URL || import.meta.env.VITE_API_URL || window.location.origin
 
   let collectorUrl = window.__ENV__?.VITE_OTEL_COLLECTOR_URL || import.meta.env.VITE_OTEL_COLLECTOR_URL || 'http://localhost:4318/v1/traces'
   let headers = {}
@@ -34,6 +69,7 @@ const getConfig = () => {
     environment: window.__ENV__?.ENVIRONMENT || import.meta.env.MODE || 'development',
     collectorUrl,
     headers,
+    traceHeaderCorsUrls: buildTraceHeaderCorsUrls(apiUrl),
   }
 }
 
@@ -54,23 +90,23 @@ export function initTelemetry() {
     'deployment.environment': config.environment,
   })
 
-  // Create tracer provider
-  const provider = new WebTracerProvider({
-    resource,
-  })
-
   // Configure OTLP HTTP exporter
   const exporter = new OTLPTraceExporter({
     url: config.collectorUrl,
     headers: config.headers,
   })
 
-  // Add batch span processor
-  provider.addSpanProcessor(new BatchSpanProcessor(exporter, {
-    maxQueueSize: 100,
-    maxExportBatchSize: 10,
-    scheduledDelayMillis: 500,
-  }))
+  // Create tracer provider with span processor (v2.x API)
+  const provider = new WebTracerProvider({
+    resource,
+    spanProcessors: [
+      new BatchSpanProcessor(exporter, {
+        maxQueueSize: 100,
+        maxExportBatchSize: 10,
+        scheduledDelayMillis: 500,
+      }),
+    ],
+  })
 
   // Register the provider
   provider.register()
@@ -80,12 +116,8 @@ export function initTelemetry() {
     instrumentations: [
       // Fetch API instrumentation (for axios and fetch)
       new FetchInstrumentation({
-        propagateTraceHeaderCorsUrls: [
-          /localhost/,
-          /\.local$/,
-          /\.svc\.cluster\.local$/,
-          /example\.com$/,
-        ],
+        propagateTraceHeaderCorsUrls: config.traceHeaderCorsUrls,
+        ignoreUrls: DEFAULT_IGNORED_HTTP_URLS,
         clearTimingResources: true,
         applyCustomAttributesOnSpan: (span, request, response) => {
           // Add custom attributes to HTTP spans
@@ -101,12 +133,16 @@ export function initTelemetry() {
 
       // XMLHttpRequest instrumentation (backup)
       new XMLHttpRequestInstrumentation({
-        propagateTraceHeaderCorsUrls: [
-          /localhost/,
-          /\.local$/,
-          /\.svc\.cluster\.local$/,
-          /example\.com$/,
-        ],
+        propagateTraceHeaderCorsUrls: config.traceHeaderCorsUrls,
+        ignoreUrls: DEFAULT_IGNORED_HTTP_URLS,
+        applyCustomAttributesOnSpan: (span, xhr) => {
+          span.setAttribute('http.response.status_code', xhr.status || 0)
+          span.setAttribute('http.response.status_text', xhr.statusText || '')
+          span.setAttribute('http.url', xhr.responseURL || '')
+          if (xhr.status === 0) {
+            span.setAttribute('error.type', 'network_error')
+          }
+        },
       }),
 
       // Document load instrumentation (page load performance)
@@ -144,6 +180,26 @@ export async function withSpan(name, attributes = {}, fn) {
   } catch (error) {
     span.recordException(error)
     span.setAttribute('error', true)
+    span.setStatus({ code: SpanStatusCode.ERROR, message: error?.message || 'operation failed' })
+
+    if (error?.name) {
+      span.setAttribute('error.type', error.name)
+    }
+    if (error?.message) {
+      span.setAttribute('error.message', error.message)
+    }
+    if (error?.config?.url) {
+      span.setAttribute('http.url', error.config.url)
+    }
+    if (error?.config?.method) {
+      span.setAttribute('http.request.method', String(error.config.method).toUpperCase())
+    }
+    if (error?.response?.status) {
+      span.setAttribute('http.response.status_code', error.response.status)
+    }
+    if (error?.response?.data?.error) {
+      span.setAttribute('app.error.detail', String(error.response.data.error))
+    }
     throw error
   } finally {
     span.end()

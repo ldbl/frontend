@@ -1,31 +1,47 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useBackendStore } from '../stores/backend'
+import { useAuthStore } from '../stores/auth'
 import { api } from '../services/api'
 import { withSpan } from '../services/telemetry'
 
 const backendStore = useBackendStore()
+const authStore = useAuthStore()
+
+const isAuthenticated = computed(() => authStore.isAuthenticated)
 const delaySeconds = ref(2)
 const statusCode = ref(500)
 const message = ref('')
 
+function requireAuth(actionLabel) {
+  if (isAuthenticated.value) {
+    return true
+  }
+  message.value = `${actionLabel}: authentication required.`
+  return false
+}
+
 async function toggleReadiness(enable) {
+  if (!requireAuth('Readiness control')) return
+
   try {
     await backendStore.toggleReady(enable)
     message.value = `Readiness ${enable ? 'enabled' : 'disabled'} successfully`
-    setTimeout(() => message.value = '', 3000)
+    setTimeout(() => (message.value = ''), 3000)
   } catch (error) {
-    message.value = `Error: ${error.message}`
+    message.value = `Error: ${error.response?.data?.error || error.message}`
   }
 }
 
 async function toggleLiveness(enable) {
+  if (!requireAuth('Liveness control')) return
+
   try {
     await backendStore.toggleLive(enable)
     message.value = `Liveness ${enable ? 'enabled' : 'disabled'} successfully`
-    setTimeout(() => message.value = '', 3000)
+    setTimeout(() => (message.value = ''), 3000)
   } catch (error) {
-    message.value = `Error: ${error.message}`
+    message.value = `Error: ${error.response?.data?.error || error.message}`
   }
 }
 
@@ -36,7 +52,7 @@ async function triggerDelay() {
       api.delay(delaySeconds.value)
     )
     message.value = `Delay completed successfully`
-    setTimeout(() => message.value = '', 3000)
+    setTimeout(() => (message.value = ''), 3000)
   } catch (error) {
     message.value = `Error: ${error.message}`
   }
@@ -49,13 +65,14 @@ async function triggerStatus() {
       api.status(statusCode.value)
     )
     message.value = `Received status ${statusCode.value}`
-    setTimeout(() => message.value = '', 3000)
+    setTimeout(() => (message.value = ''), 3000)
   } catch (error) {
     message.value = `Error: ${error.message}`
   }
 }
 
 async function triggerPanic() {
+  if (!requireAuth('Panic endpoint')) return
   if (!confirm('This will terminate the backend process. Are you sure?')) return
 
   try {
@@ -65,7 +82,7 @@ async function triggerPanic() {
       message.value = `Panic triggered. Trace ID: ${data.trace_id}`
     }
   } catch (error) {
-    message.value = 'Backend terminated (expected behavior)'
+    message.value = `Error: ${error.response?.data?.error || error.message}`
   }
 }
 </script>
@@ -75,6 +92,10 @@ async function triggerPanic() {
     <div>
       <h2 class="text-3xl font-bold text-white mb-2">Chaos Engineering</h2>
       <p class="text-slate-400">Test resilience and failure scenarios</p>
+    </div>
+
+    <div v-if="!isAuthenticated" class="bg-amber-900/40 border border-amber-700 rounded-lg p-4 text-amber-300 text-sm">
+      Anonymous mode: you can test delay/status, but readiness/liveness/panic are available only for authenticated users.
     </div>
 
     <!-- Message Alert -->
@@ -91,13 +112,15 @@ async function triggerPanic() {
           <div class="flex gap-2">
             <button
               @click="toggleReadiness(true)"
-              class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              :disabled="!isAuthenticated"
+              class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
             >
               Enable
             </button>
             <button
               @click="toggleReadiness(false)"
-              class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              :disabled="!isAuthenticated"
+              class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
             >
               Disable
             </button>
@@ -112,13 +135,15 @@ async function triggerPanic() {
           <div class="flex gap-2">
             <button
               @click="toggleLiveness(true)"
-              class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+              :disabled="!isAuthenticated"
+              class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
             >
               Enable
             </button>
             <button
               @click="toggleLiveness(false)"
-              class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              :disabled="!isAuthenticated"
+              class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
             >
               Disable
             </button>
@@ -192,7 +217,8 @@ async function triggerPanic() {
       <h3 class="text-lg font-semibold text-red-400 mb-4">⚠️ Crash Simulation</h3>
       <button
         @click="triggerPanic"
-        class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold"
+        :disabled="!isAuthenticated"
+        class="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors font-semibold"
       >
         💥 Trigger Panic (Terminate Process)
       </button>

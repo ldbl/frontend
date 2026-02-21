@@ -24,6 +24,11 @@ const router = createRouter({
       name: 'environment',
       component: () => import('../views/EnvironmentView.vue'),
     },
+    {
+      path: '/auth',
+      name: 'auth',
+      component: () => import('../views/AuthView.vue'),
+    },
   ],
 })
 

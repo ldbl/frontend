@@ -1,7 +1,15 @@
 <script setup>
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import AppHeader from './components/Layout/AppHeader.vue'
 import AppSidebar from './components/Layout/AppSidebar.vue'
+import { useAuthStore } from './stores/auth'
+
+const authStore = useAuthStore()
+
+onMounted(() => {
+  authStore.restoreSession()
+})
 </script>
 
 <template>

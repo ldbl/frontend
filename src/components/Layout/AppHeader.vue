@@ -1,8 +1,11 @@
 <script setup>
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useBackendStore } from '../../stores/backend'
+import { useAuthStore } from '../../stores/auth'
 
 const backendStore = useBackendStore()
+const authStore = useAuthStore()
 
 const statusColor = computed(() => {
   switch (backendStore.healthStatus) {
@@ -12,6 +15,10 @@ const statusColor = computed(() => {
     default: return 'bg-red-500'
   }
 })
+
+function logout() {
+  authStore.logout()
+}
 </script>
 
 <template>
@@ -31,6 +38,24 @@ const statusColor = computed(() => {
         <span v-if="backendStore.version">
           {{ backendStore.version.commit_short }}
         </span>
+
+        <RouterLink
+          v-if="!authStore.isAuthenticated"
+          to="/auth"
+          class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200"
+        >
+          Login / Register
+        </RouterLink>
+
+        <div v-else class="flex items-center gap-2">
+          <span class="text-emerald-400">🔐 {{ authStore.username }}</span>
+          <button
+            @click="logout"
+            class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200"
+          >
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   </header>
